@@ -74,9 +74,9 @@
 </div>
 </header>
 <div class="px-4 pt-4">
-<div class="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-500 text-white shadow-lg shadow-emerald-100 dark:shadow-none">
+<div id="barraEstado" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-500 text-white shadow-lg shadow-emerald-100 dark:shadow-none">
 <span class="material-symbols-outlined font-bold">check_circle</span>
-<span class="text-sm font-black uppercase tracking-wider">Compuerta Cerrada</span>
+<span id="compuertaEstado" class="text-sm font-black uppercase tracking-wider">Compuerta ---</span>
 </div>
 </div>
 <div class="grid grid-cols-2 gap-4 p-4">
@@ -86,8 +86,8 @@
 <span class="material-symbols-outlined text-white/80">air</span>
 </div>
 <div class="flex items-baseline gap-2 py-1">
-<p class="text-5xl font-black">98%</p>
-<span class="text-sky-100 text-sm font-bold uppercase">Excelente</span>
+    <p id="mq135Val" class="text-5xl font-black">--</p>
+    <span id="mq135Estado" class="text-sky-100 text-sm font-bold uppercase">--</span>
 </div>
 <div class="mt-2 h-2 w-full bg-white/20 rounded-full overflow-hidden">
 <div class="bg-white h-full w-[98%] rounded-full"></div>
@@ -98,7 +98,7 @@
 <span class="material-symbols-outlined text-orange-400 text-xl">thermostat</span>
 <p class="text-slate-400 text-[10px] font-bold uppercase">Temperatura</p>
 </div>
-<p class="text-2xl font-black tracking-tight">23.5°C</p>
+<p id="tempVal" class="text-2xl font-black">--°C</p>
 <p class="text-[10px] text-emerald-500 font-bold uppercase">Óptimo</p>
 </div>
 <div class="flex flex-col gap-2 rounded-2xl p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -106,7 +106,7 @@
 <span class="material-symbols-outlined text-sky-400 text-xl">humidity_mid</span>
 <p class="text-slate-400 text-[10px] font-bold uppercase">Humedad</p>
 </div>
-<p class="text-2xl font-black tracking-tight">42%</p>
+<p id="humVal" class="text-2xl font-black tracking-tight">--%</p>
 <p class="text-[10px] text-emerald-500 font-bold uppercase">Ideal</p>
 </div>
 </div>
@@ -119,7 +119,7 @@
 <div class="flex-1">
 <div class="flex justify-between items-baseline mb-1.5">
 <p class="font-bold text-sm">Gas Metano (CH4)</p>
-<p class="font-black text-sm text-slate-600 dark:text-slate-300">0.02 ppm</p>
+<p id="mq4Val" class="font-black text-sm text-slate-600 dark:text-slate-300">-- ppm</p>
 </div>
 <div class="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full">
 <div class="h-full bg-emerald-500 w-[5%] rounded-full"></div>
@@ -133,7 +133,7 @@
 <div class="flex-1">
 <div class="flex justify-between items-baseline mb-1.5">
 <p class="font-bold text-sm">Vapores Químicos/Org.</p>
-<p class="font-black text-sm text-emerald-500 uppercase">Normal</p>
+<span id="mq138Val" class="font-black text-sm text-emerald-500 uppercase">--</span>
 </div>
 <div class="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full">
 <div class="h-full bg-emerald-500 w-[12%] rounded-full"></div>
@@ -205,5 +205,76 @@
 </div>
 </nav>
 </div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js"></script>
+
+<script>
+  // CONFIGURACIÓN DE FIREBASE (pon tus propias keys)
+  const firebaseConfig = {
+    apiKey: "",
+    authDomain: "",
+    databaseURL: "",
+    projectId: "",
+    storageBucket: "",
+    messagingSenderId: "",
+    appId: ""
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  /* ---------------------------------------------
+      LECTURA DE ESTADO (compuerta)
+  --------------------------------------------- */
+  db.ref("estado").on("value", snap => {
+    const e = snap.val();
+
+    // Texto del banner superior
+    document.getElementById("compuertaEstado").textContent =
+      "Compuerta " + e.compuerta;
+
+    // Puedes cambiar color si está abierta/cerrada
+    const barra = document.getElementById("barraEstado");
+    if (e.compuerta === "ABIERTA") {
+      barra.classList.remove("bg-emerald-500");
+      barra.classList.add("bg-red-500");
+    } else {
+      barra.classList.remove("bg-red-500");
+      barra.classList.add("bg-emerald-500");
+    }
+  });
+
+  function interpretarCalidad(valor) {
+  if (valor < 100) return "Excelente";
+  if (valor < 200) return "Buena";
+  if (valor < 350) return "Aceptable";
+  if (valor < 600) return "Mala";
+  return "Muy mala";
+}
+
+  /* ---------------------------------------------
+      LECTURA DE ÚLTIMA TELEMETRÍA
+  --------------------------------------------- */
+  db.ref("telemetria")
+  .limitToLast(1)
+  .on("child_added", snap => {
+    const t = snap.val();
+
+    document.getElementById("tempVal").textContent = t.temp + "°C";
+    document.getElementById("humVal").textContent = t.hum + "%";
+    document.getElementById("mq4Val").textContent = t.mq4 + " ppm";
+    document.getElementById("mq138Val").textContent = t.mq138;
+
+    // MQ135 (valor crudo)
+    document.getElementById("mq135Val").textContent = t.mq135;
+
+    // MQ135 (interpretación)
+    document.getElementById("mq135Estado").textContent =
+      interpretarCalidad(t.mq135);
+});
+
+</script>
 
 </body></html>
